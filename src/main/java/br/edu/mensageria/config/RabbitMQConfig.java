@@ -1,7 +1,10 @@
 package br.edu.mensageria.config;
 
+import java.util.Locale;
 import java.util.Map;
 
+import br.edu.mensageria.monitoramento.RegistroDeAtividades;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.springframework.amqp.AmqpRejectAndDontRequeueException;
 import org.springframework.amqp.core.Binding;
@@ -12,6 +15,8 @@ import org.springframework.amqp.core.QueueBuilder;
 import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
+import org.springframework.amqp.rabbit.retry.MessageRecoverer;
+import org.springframework.amqp.rabbit.support.ListenerExecutionFailedException;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
 import org.springframework.amqp.support.converter.MessageConversionException;
 import org.springframework.amqp.support.converter.MessageConverter;
@@ -20,6 +25,7 @@ import org.springframework.boot.autoconfigure.amqp.RabbitProperties;
 import org.springframework.boot.autoconfigure.amqp.RabbitRetryTemplateCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.core.NestedExceptionUtils;
 import org.springframework.retry.policy.SimpleRetryPolicy;
 
 /**
@@ -125,6 +131,25 @@ public class RabbitMQConfig {
     }
 
     /**
+     * Chamado quando um consumidor desiste de uma mensagem (inválida ou sem sucesso após o retry).
+     * Registra o motivo numa linha e rejeita sem requeue, o que manda a mensagem para a DLQ.
+     */
+    @Bean
+    public MessageRecoverer rejeitarParaDlq(RegistroDeAtividades atividades) {
+        return (mensagem, causa) -> {
+            String fila = mensagem.getMessageProperties().getConsumerQueue();
+            String origem = fila == null ? "CONSUMIDOR" : fila.replace(".queue", "").toUpperCase(Locale.ROOT);
+            Throwable raiz = NestedExceptionUtils.getMostSpecificCause(causa);
+            String motivo = raiz instanceof JsonProcessingException
+                    ? "não foi possível converter o JSON do evento"
+                    : primeiraLinha(raiz.getMessage());
+            atividades.aviso(origem, "Mensagem rejeitada e enviada para a DLQ: {}", motivo);
+            throw new ListenerExecutionFailedException("Mensagem rejeitada",
+                    new AmqpRejectAndDontRequeueException(causa), mensagem);
+        };
+    }
+
+    /**
      * Mensagens inválidas não melhoram com novas tentativas: vão direto para a DLQ.
      * As demais falhas (transitórias) seguem o retry configurado em application.properties.
      */
@@ -144,5 +169,13 @@ public class RabbitMQConfig {
 
     private static Queue filaComDeadLetter(String nome) {
         return QueueBuilder.durable(nome).deadLetterExchange(DLX).build();
+    }
+
+    private static String primeiraLinha(String texto) {
+        if (texto == null) {
+            return "motivo desconhecido";
+        }
+        int quebra = texto.indexOf('\n');
+        return quebra < 0 ? texto : texto.substring(0, quebra);
     }
 }
