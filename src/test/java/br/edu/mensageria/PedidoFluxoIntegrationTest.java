@@ -11,6 +11,8 @@ import java.time.Instant;
 import br.edu.mensageria.config.RabbitMQConfig;
 import br.edu.mensageria.messaging.PedidoEvent;
 import br.edu.mensageria.messaging.TipoEvento;
+import br.edu.mensageria.monitoramento.MonitoramentoController;
+import br.edu.mensageria.pagamento.PagamentoConsumer;
 import br.edu.mensageria.pedido.Pedido;
 import br.edu.mensageria.pedido.PedidoService;
 import br.edu.mensageria.pedido.StatusPedido;
@@ -50,6 +52,9 @@ class PedidoFluxoIntegrationTest {
     @Autowired
     AmqpAdmin amqpAdmin;
 
+    @Autowired
+    MonitoramentoController monitoramento;
+
     @BeforeEach
     void limparDlq() {
         amqpAdmin.purgeQueue(RabbitMQConfig.DLQ, false);
@@ -61,6 +66,23 @@ class PedidoFluxoIntegrationTest {
 
         await().atMost(Duration.ofSeconds(10))
                 .until(() -> pedidoService.buscar(pedido.getId()).getStatus() == StatusPedido.PAGO);
+    }
+
+    @Test
+    void consumidorPausadoAcumulaMensagensNaFilaAteSerRetomado() {
+        monitoramento.pausar(PagamentoConsumer.ID);
+        try {
+            Pedido pedido = pedidoService.criar(new PedidoRequest("Ana", "Monitor", 1, new BigDecimal("900")));
+
+            await().atMost(Duration.ofSeconds(10)).until(() -> mensagensNaFila(RabbitMQConfig.PAGAMENTO_QUEUE) == 1);
+            assertThat(pedidoService.buscar(pedido.getId()).getStatus()).isEqualTo(StatusPedido.CRIADO);
+
+            monitoramento.retomar(PagamentoConsumer.ID);
+            await().atMost(Duration.ofSeconds(10))
+                    .until(() -> pedidoService.buscar(pedido.getId()).getStatus() == StatusPedido.PAGO);
+        } finally {
+            monitoramento.retomar(PagamentoConsumer.ID);
+        }
     }
 
     @Test
@@ -94,6 +116,10 @@ class PedidoFluxoIntegrationTest {
     }
 
     private int mensagensNaDlq() {
-        return amqpAdmin.getQueueInfo(RabbitMQConfig.DLQ).getMessageCount();
+        return mensagensNaFila(RabbitMQConfig.DLQ);
+    }
+
+    private int mensagensNaFila(String fila) {
+        return amqpAdmin.getQueueInfo(fila).getMessageCount();
     }
 }

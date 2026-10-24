@@ -1,26 +1,25 @@
 package br.edu.mensageria.messaging;
 
 import br.edu.mensageria.config.RabbitMQConfig;
+import br.edu.mensageria.monitoramento.RegistroDeAtividades;
 import br.edu.mensageria.pedido.Pedido;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Component;
 
 @Component
 public class PedidoEventPublisher {
 
-    private static final Logger log = LoggerFactory.getLogger(PedidoEventPublisher.class);
-
     private final RabbitTemplate rabbitTemplate;
+    private final RegistroDeAtividades atividades;
 
-    public PedidoEventPublisher(RabbitTemplate rabbitTemplate) {
+    public PedidoEventPublisher(RabbitTemplate rabbitTemplate, RegistroDeAtividades atividades) {
         this.rabbitTemplate = rabbitTemplate;
+        this.atividades = atividades;
     }
 
     public void publicar(Pedido pedido, TipoEvento tipo) {
         PedidoEvent evento = PedidoEvent.de(pedido, tipo);
         rabbitTemplate.convertAndSend(RabbitMQConfig.EXCHANGE, tipo.routingKey(), evento);
-        log.info("[PUBLISHER] {} publicado para o pedido {}", tipo.routingKey(), pedido.getId());
+        atividades.info("PUBLISHER", "{} publicado para o pedido {}", tipo.routingKey(), pedido.getId());
     }
 }

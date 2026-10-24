@@ -2,8 +2,7 @@ package br.edu.mensageria.notificacao;
 
 import br.edu.mensageria.config.RabbitMQConfig;
 import br.edu.mensageria.messaging.PedidoEvent;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import br.edu.mensageria.monitoramento.RegistroDeAtividades;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
 
@@ -11,9 +10,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class NotificacaoConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(NotificacaoConsumer.class);
+    public static final String ID = "notificacao";
 
-    @RabbitListener(queues = RabbitMQConfig.NOTIFICACAO_QUEUE)
+    private final RegistroDeAtividades atividades;
+
+    public NotificacaoConsumer(RegistroDeAtividades atividades) {
+        this.atividades = atividades;
+    }
+
+    @RabbitListener(id = ID, queues = RabbitMQConfig.NOTIFICACAO_QUEUE)
     public void receber(PedidoEvent evento) {
         evento.validar();
         String situacao = switch (evento.tipo()) {
@@ -21,7 +26,7 @@ public class NotificacaoConsumer {
             case PAGO -> "teve o pagamento aprovado";
             case CANCELADO -> "foi cancelado";
         };
-        log.info("[NOTIFICACAO] E-mail enviado para {}: seu pedido {} ({}) {}",
+        atividades.info("NOTIFICACAO", "E-mail enviado para {}: seu pedido {} ({}) {}",
                 evento.dados().cliente(), evento.pedidoId(), evento.dados().produto(), situacao);
     }
 }

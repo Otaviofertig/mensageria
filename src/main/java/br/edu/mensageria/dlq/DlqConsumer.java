@@ -5,8 +5,7 @@ import java.util.List;
 import java.util.Map;
 
 import br.edu.mensageria.config.RabbitMQConfig;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import br.edu.mensageria.monitoramento.RegistroDeAtividades;
 import org.springframework.amqp.core.Message;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.stereotype.Component;
@@ -22,9 +21,16 @@ import org.springframework.stereotype.Component;
 @Component
 public class DlqConsumer {
 
-    private static final Logger log = LoggerFactory.getLogger(DlqConsumer.class);
+    public static final String ID = "dlq";
 
-    @RabbitListener(queues = RabbitMQConfig.DLQ,
+    private final RegistroDeAtividades atividades;
+
+    public DlqConsumer(RegistroDeAtividades atividades) {
+        this.atividades = atividades;
+    }
+
+    @RabbitListener(id = ID,
+            queues = RabbitMQConfig.DLQ,
             containerFactory = "dlqListenerContainerFactory",
             autoStartup = "${dlq.consumer.auto-startup:true}")
     public void receber(Message mensagem) {
@@ -32,12 +38,12 @@ public class DlqConsumer {
         List<Map<String, ?>> xDeath = mensagem.getMessageProperties().getXDeathHeader();
 
         if (xDeath == null || xDeath.isEmpty()) {
-            log.error("[DLQ] Mensagem sem header x-death: {}", corpo);
+            atividades.erro("DLQ", "Mensagem sem header x-death: {}", corpo);
             return;
         }
 
         Map<String, ?> morte = xDeath.get(0);
-        log.error("[DLQ] Mensagem rejeitada na fila {} (motivo: {}, routing key: {}): {}",
+        atividades.erro("DLQ", "Mensagem rejeitada na fila {} (motivo: {}, routing key: {}): {}",
                 morte.get("queue"), morte.get("reason"), morte.get("routing-keys"), corpo);
     }
 }
