@@ -43,7 +43,7 @@ Cliente ──POST /pedidos──► Pedido API ──publica──► [pedido.e
 | `pedido.pago` | PagamentoConsumer | Após aprovar a cobrança |
 | `pedido.cancelado` | Pedido API | Ao cancelar um pedido |
 
-Toda a topologia é declarada em [RabbitMQConfig.java](src/main/java/br/com/intracommerce/mensageria/config/RabbitMQConfig.java) e criada automaticamente no RabbitMQ quando a aplicação sobe.
+Toda a topologia é declarada em [RabbitMQConfig.java](src/main/java/br/edu/mensageria/config/RabbitMQConfig.java) e criada automaticamente no RabbitMQ quando a aplicação sobe.
 
 ## Como executar
 
@@ -162,7 +162,7 @@ Os testes de integração usam [Testcontainers](https://testcontainers.com) para
 ## Estrutura
 
 ```
-src/main/java/br/com/intracommerce/mensageria
+src/main/java/br/edu/mensageria
 ├── config/        RabbitMQConfig (exchanges, filas, bindings, DLX, conversor JSON, retry)
 ├── pedido/        Pedido, PedidoController, PedidoService, PedidoRepository, dto/, tratamento de erros da API
 ├── messaging/     PedidoEvent, TipoEvento, PedidoEventPublisher

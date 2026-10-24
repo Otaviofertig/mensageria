@@ -87,7 +87,7 @@ O consumidor de pagamento consome `pedido.criado` e publica `pedido.pago`, carac
 ## Estrutura de pacotes
 
 ```
-br.com.intracommerce.mensageria
+br.edu.mensageria
 ├── config/          RabbitMQConfig
 ├── pedido/          Pedido, PedidoController, PedidoService, PedidoRepository, dto/
 ├── messaging/       PedidoEvent, PedidoEventPublisher

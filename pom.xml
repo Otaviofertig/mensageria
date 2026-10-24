@@ -10,7 +10,7 @@
         <relativePath/>
     </parent>
 
-    <groupId>br.com.intracommerce</groupId>
+    <groupId>br.edu</groupId>
     <artifactId>mensageria</artifactId>
     <version>0.0.1-SNAPSHOT</version>
     <name>mensageria</name>
