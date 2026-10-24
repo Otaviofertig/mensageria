@@ -38,9 +38,14 @@ public class RegistroDeAtividades {
         registrar(Nivel.ERRO, origem, mensagem, args);
     }
 
-    /** Atividades com id maior que o informado, da mais antiga para a mais recente. */
+    /**
+     * Atividades com id maior que o informado, da mais antiga para a mais recente.
+     * Um id maior que o último gerado significa que a aplicação reiniciou enquanto a página
+     * continuava aberta (a numeração recomeça em 1): nesse caso devolve tudo desde o início.
+     */
     public synchronized List<Atividade> listarApos(long id) {
-        return atividades.stream().filter(atividade -> atividade.id() > id).toList();
+        long desde = id > sequencia.get() ? 0 : id;
+        return atividades.stream().filter(atividade -> atividade.id() > desde).toList();
     }
 
     private void registrar(Nivel nivel, String origem, String mensagem, Object... args) {
