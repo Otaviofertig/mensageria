@@ -1,0 +1,40 @@
+### Criar pedido (fluxo feliz: criado → pago)
+POST http://localhost:8080/pedidos
+Content-Type: application/json
+
+{
+  "cliente": "Maria",
+  "produto": "Notebook",
+  "quantidade": 2,
+  "valor": 3500
+}
+
+### Criar pedido acima de R$ 10.000 (gateway simulado fora do ar → 3 tentativas → DLQ)
+POST http://localhost:8080/pedidos
+Content-Type: application/json
+
+{
+  "cliente": "João",
+  "produto": "Servidor",
+  "quantidade": 1,
+  "valor": 15000
+}
+
+### Criar pedido inválido (400 com os erros de validação)
+POST http://localhost:8080/pedidos
+Content-Type: application/json
+
+{
+  "cliente": "",
+  "produto": "Mouse",
+  "quantidade": 0
+}
+
+### Listar pedidos
+GET http://localhost:8080/pedidos
+
+### Buscar pedido
+GET http://localhost:8080/pedidos/1
+
+### Cancelar pedido (publica pedido.cancelado)
+POST http://localhost:8080/pedidos/1/cancelar

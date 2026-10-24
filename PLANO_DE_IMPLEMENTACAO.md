@@ -101,40 +101,40 @@ br.com.intracommerce.mensageria
 
 ### Fase 0 — Ambiente
 
-- [ ] Criar `docker-compose.yml` com `rabbitmq:4-management` (portas 5672 e 15672)
-- [ ] Gerar projeto em [start.spring.io](https://start.spring.io): Maven, Java 17, Spring Boot 3.5.x
-- [ ] Dependências: Spring Web, Spring for RabbitMQ, Validation (+ Spring Data JPA e H2, conforme decisão 2)
-- [ ] Configurar `application.properties` (`spring.rabbitmq.*`)
+- [x] Criar `docker-compose.yml` com `rabbitmq:4-management` (portas 5672 e 15672)
+- [x] Gerar projeto em [start.spring.io](https://start.spring.io): Maven, Java 17, Spring Boot 3.5.x
+- [x] Dependências: Spring Web, Spring for RabbitMQ, Validation (+ Spring Data JPA e H2, conforme decisão 2)
+- [x] Configurar `application.properties` (`spring.rabbitmq.*`)
 
 ### Fase 1 — Domínio e API REST
 
-- [ ] Entidade `Pedido`: `id`, `cliente`, `produto`, `quantidade`, `valor`, `status` (`CRIADO`, `PAGO`, `CANCELADO`), `dataCriacao`
-- [ ] `PedidoRequest` com validações (`@NotBlank`, `@Positive`, ...)
-- [ ] `PedidoController` e `PedidoService`
-- [ ] `@RestControllerAdvice` retornando 400 com os erros de validação
+- [x] Entidade `Pedido`: `id`, `cliente`, `produto`, `quantidade`, `valor`, `status` (`CRIADO`, `PAGO`, `CANCELADO`), `dataCriacao`
+- [x] `PedidoRequest` com validações (`@NotBlank`, `@Positive`, ...)
+- [x] `PedidoController` e `PedidoService`
+- [x] `@RestControllerAdvice` retornando 400 com os erros de validação
 
 ### Fase 2 — Topologia RabbitMQ (`RabbitMQConfig`)
 
-- [ ] `TopicExchange` `pedido.events`
-- [ ] 3 filas duráveis, cada uma com argumento `x-dead-letter-exchange = pedido.dlx`
-- [ ] Bindings conforme tabela de topologia
-- [ ] DLX `pedido.dlx` e fila `pedido.dlq`
-- [ ] Bean `Jackson2JsonMessageConverter` para serialização JSON automática
+- [x] `TopicExchange` `pedido.events`
+- [x] 3 filas duráveis, cada uma com argumento `x-dead-letter-exchange = pedido.dlx`
+- [x] Bindings conforme tabela de topologia
+- [x] DLX `pedido.dlx` e fila `pedido.dlq`
+- [x] Bean `Jackson2JsonMessageConverter` para serialização JSON automática
 
 > **Atenção:** alterar argumentos de uma fila já existente (ex.: adicionar DLX depois) causa `PRECONDITION_FAILED`. Nesse caso, apagar a fila pelo Management antes de reiniciar a aplicação. Por isso a DLX já é criada nesta fase.
 
 ### Fase 3 — Produtor
 
-- [ ] `PedidoEvent` (`record`): `pedidoId`, `tipo`, `dados`, `timestamp`
-- [ ] `PedidoEventPublisher` publicando na exchange com a routing key do evento
-- [ ] Publicação no `PedidoService` após salvar/cancelar o pedido
+- [x] `PedidoEvent` (`record`): `pedidoId`, `tipo`, `dados`, `timestamp`
+- [x] `PedidoEventPublisher` publicando na exchange com a routing key do evento
+- [x] Publicação no `PedidoService` após salvar/cancelar o pedido
 
 ### Fase 4 — Consumidores
 
-- [ ] `EstoqueConsumer`
-- [ ] `PagamentoConsumer` (publica `pedido.pago`)
-- [ ] `NotificacaoConsumer`
-- [ ] Logs descritivos, ex.: `[ESTOQUE] Reservando 2x Notebook do pedido 1001`
+- [x] `EstoqueConsumer`
+- [x] `PagamentoConsumer` (publica `pedido.pago`)
+- [x] `NotificacaoConsumer`
+- [x] Logs descritivos, ex.: `[ESTOQUE] Reservando 2x Notebook do pedido 1001`
 
 ### Fase 5 — Tratamento de mensagens inválidas
 
@@ -144,30 +144,30 @@ br.com.intracommerce.mensageria
 | Payload inválido (ex.: `quantidade <= 0`, `id` nulo) | Consumidor lança `AmqpRejectAndDontRequeueException` → DLQ |
 | Erro transitório (ex.: falha simulada no pagamento) | Retry com backoff (3 tentativas) → esgotou → DLQ |
 
-- [ ] `spring.rabbitmq.listener.simple.retry.enabled=true` (+ `max-attempts`, backoff)
-- [ ] `spring.rabbitmq.listener.simple.default-requeue-rejected=false` para evitar loop infinito
-- [ ] `DlqConsumer` logando a origem da falha via header `x-death`
-- [ ] Demonstração: publicar JSON quebrado pelo Management (Exchanges → Publish message) e observar a chegada na DLQ
+- [x] `spring.rabbitmq.listener.simple.retry.enabled=true` (+ `max-attempts`, backoff)
+- [x] `spring.rabbitmq.listener.simple.default-requeue-rejected=false` para evitar loop infinito
+- [x] `DlqConsumer` logando a origem da falha via header `x-death`
+- [x] Demonstração: publicar JSON quebrado pelo Management (Exchanges → Publish message) e observar a chegada na DLQ
 
 ### Fase 6 — Monitoramento e documentação
 
-- [ ] `README.md`: como subir o ambiente, arquitetura e endpoints
-- [ ] Coleção Postman ou arquivo `.http`
-- [ ] Roteiro de demonstração:
+- [x] `README.md`: como subir o ambiente, arquitetura e endpoints
+- [x] Coleção Postman ou arquivo `.http`
+- [x] Roteiro de demonstração:
   1. Criar pedido e observar as filas enchendo/esvaziando
   2. Acompanhar publish rate / deliver rate no Overview
   3. Parar um consumidor e mostrar mensagens acumulando na fila
   4. Enviar mensagem inválida e mostrar a DLQ
 - [ ] Prints da Management UI
 
-## Decisões em aberto
+## Decisões
 
-| # | Decisão | Recomendação | Alternativas |
+| # | Decisão | Escolha | Alternativas |
 |---|---|---|---|
-| 1 | Uma aplicação ou várias? | App única com consumidores em pacotes separados | Multi-módulo com 4 apps (pedido-api, estoque, pagamento, notificacao) |
-| 2 | Persistência do pedido | JPA + H2 em memória | Lista em memória · PostgreSQL no Docker |
-| 3 | Fluxo do pagamento | `PagamentoConsumer` publica `pedido.pago` automaticamente | Endpoint manual `POST /pedidos/{id}/pagar` · ambos |
-| 4 | Formato de entrega | A definir conforme exigência do professor | Relatório · prints · vídeo · repositório Git |
+| 1 | Uma aplicação ou várias? | ✅ App única com consumidores em pacotes separados | Multi-módulo com 4 apps (pedido-api, estoque, pagamento, notificacao) |
+| 2 | Persistência do pedido | ✅ JPA + H2 em memória | Lista em memória · PostgreSQL no Docker |
+| 3 | Fluxo do pagamento | ✅ `PagamentoConsumer` publica `pedido.pago` automaticamente | Endpoint manual `POST /pedidos/{id}/pagar` · ambos |
+| 4 | Formato de entrega | ⏳ A definir conforme exigência do professor | Relatório · prints · vídeo · repositório Git |
 
 ## Referências
 
