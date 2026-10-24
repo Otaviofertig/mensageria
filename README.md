@@ -176,7 +176,7 @@ Também é possível publicar a mensagem inválida pelo próprio Management, em 
 ./mvnw verify
 ```
 
-Os testes de integração usam [Testcontainers](https://testcontainers.com) para subir um RabbitMQ real, por isso precisam do Docker rodando. Eles cobrem o fluxo criado → pago, a pausa e retomada de um consumidor, o retry seguido de DLQ, o JSON malformado, o payload inválido e o log do `DlqConsumer`.
+Os testes de integração usam [Testcontainers](https://testcontainers.com) para subir um RabbitMQ real, por isso precisam do Docker rodando. Eles cobrem o fluxo criado → pago, a pausa e retomada de um consumidor, o retry seguido de DLQ, o JSON malformado, o payload inválido e o log do `DlqConsumer`. Os testes da API (`PedidoControllerTest`) garantem que toda entrada inválida vira um erro 400 com mensagem legível.
 
 ## Estrutura
 
