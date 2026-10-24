@@ -34,6 +34,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 @Testcontainers
 @SpringBootTest(properties = {
         "pagamento.tempo-processamento-ms=0",
+        "estoque.tempo-processamento-ms=0",
+        "notificacao.tempo-processamento-ms=0",
         "spring.rabbitmq.listener.simple.retry.initial-interval=100ms",
         "dlq.consumer.auto-startup=false"
 })

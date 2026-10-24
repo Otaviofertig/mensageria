@@ -22,7 +22,11 @@ import org.testcontainers.junit.jupiter.Testcontainers;
 
 @Testcontainers
 @ExtendWith(OutputCaptureExtension.class)
-@SpringBootTest(properties = "pagamento.tempo-processamento-ms=0")
+@SpringBootTest(properties = {
+        "pagamento.tempo-processamento-ms=0",
+        "estoque.tempo-processamento-ms=0",
+        "notificacao.tempo-processamento-ms=0"
+})
 class DlqConsumerIntegrationTest {
 
     @Container
