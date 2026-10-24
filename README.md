@@ -162,7 +162,7 @@ Deixe a interface web e o RabbitMQ Management abertos lado a lado.
 
 1. **Topologia** — No Management, em *Exchanges → pedido.events → Bindings*, mostrar as quatro ligações e as routing keys. Em *Queues and Streams*, mostrar as quatro filas e o argumento `DLX` nelas.
 2. **Fluxo feliz** — Na interface, clicar em *Pedido normal*. Na linha do tempo aparecem o publisher, o estoque, a notificação e o pagamento reagindo, seguidos do `pedido.pago` encadeado. Na tabela, o status muda de `CRIADO` para `PAGO`.
-3. **Filas enchendo e esvaziando** — Clicar em *Carga: 20 pedidos*. O pagamento leva 1 s por pedido, então `pagamento.queue` acumula mensagens enquanto estoque e notificação esvaziam na hora.
+3. **Filas enchendo e esvaziando** — Clicar em *Carga: 20 pedidos*. Cada consumidor tem um tempo de trabalho simulado (estoque 0,3 s, notificação 0,5 s, pagamento 1 s), então as três filas acumulam e esvaziam em ritmos diferentes. A `notificacao.queue` recebe o dobro de mensagens, porque também recebe os `pedido.pago`.
 4. **Taxas** — No Management, em *Overview*, acompanhar *Publish rate* e *Deliver rate* durante o passo anterior.
 5. **Consumidor parado** — Clicar em *Pausar* na `pagamento.queue` e criar alguns pedidos. As mensagens acumulam na fila e os pedidos ficam `CRIADO`. Ao clicar em *Retomar*, tudo é processado. Nada se perde porque quem guarda as mensagens é o broker, não a aplicação.
 6. **Mensagem inválida** — Clicar em *JSON malformado*. A linha do tempo mostra três registros `DLQ`, um por fila ligada a `pedido.criado`, sem nenhuma nova tentativa. Repetir com *Evento inválido*. Para ver as mensagens paradas na DLQ, pausar o consumidor da `pedido.dlq` antes e depois inspecionar pelo Management (*Queues → pedido.dlq → Get messages*).
@@ -200,6 +200,8 @@ src/main/resources/static   interface web (index.html, styles.css, app.js)
 |---|---|---|
 | `spring.rabbitmq.host` | `localhost` | Host do broker |
 | `spring.rabbitmq.listener.simple.retry.max-attempts` | `3` | Tentativas antes da DLQ |
+| `estoque.tempo-processamento-ms` | `300` | Tempo simulado de cada reserva de estoque |
+| `notificacao.tempo-processamento-ms` | `500` | Tempo simulado de cada envio de e-mail |
 | `pagamento.tempo-processamento-ms` | `1000` | Tempo simulado de cada cobrança |
 | `pagamento.limite-gateway` | `10000` | Acima desse valor o gateway simula falha |
 | `dlq.consumer.auto-startup` | `true` | `false` deixa as mensagens acumuladas na DLQ |
