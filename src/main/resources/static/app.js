@@ -49,19 +49,38 @@ function el(tag, atributos = {}, ...filhos) {
 }
 
 async function api(metodo, caminho, corpo) {
-    const resposta = await fetch(caminho, {
-        method: metodo,
-        headers: corpo ? { "Content-Type": "application/json" } : undefined,
-        body: corpo ? JSON.stringify(corpo) : undefined,
-    });
+    let resposta;
+    try {
+        resposta = await fetch(caminho, {
+            method: metodo,
+            headers: corpo ? { "Content-Type": "application/json" } : undefined,
+            body: corpo ? JSON.stringify(corpo) : undefined,
+        });
+    } catch {
+        throw new Error("Não foi possível conectar à API. Verifique se a aplicação está no ar.");
+    }
+
     const texto = await resposta.text();
-    const dados = texto ? JSON.parse(texto) : null;
+    let dados = null;
+    try {
+        dados = texto ? JSON.parse(texto) : null;
+    } catch {
+        // Resposta que não é JSON (ex.: página de erro de um proxy): segue só com o status.
+    }
+
     if (!resposta.ok) {
-        const erro = new Error(dados?.detail || `Erro ${resposta.status}`);
+        const erro = new Error(dados?.detail || mensagemPorStatus(resposta.status));
         erro.dados = dados;
         throw erro;
     }
     return dados;
+}
+
+function mensagemPorStatus(status) {
+    if (status === 404) return "Recurso não encontrado.";
+    if (status === 409) return "Operação não permitida no estado atual.";
+    if (status >= 500) return "Erro interno na API. Consulte o log da aplicação.";
+    return `A API recusou a requisição (erro ${status}).`;
 }
 
 let temporizadorAviso;
@@ -257,10 +276,13 @@ $("#form-pedido").addEventListener("submit", async (evento) => {
     const form = evento.currentTarget;
     const botao = form.querySelector("button");
     const dados = Object.fromEntries(new FormData(form));
+    // Quantidade não inteira é barrada pela API antes das demais validações. Para mostrar todos
+    // os erros de uma vez, ela é enviada vazia e o erro dela é preenchido aqui.
+    const quantidadeNaoInteira = dados.quantidade !== "" && !Number.isInteger(Number(dados.quantidade));
     const pedido = {
         cliente: dados.cliente.trim(),
         produto: dados.produto.trim(),
-        quantidade: dados.quantidade === "" ? null : Number(dados.quantidade),
+        quantidade: dados.quantidade === "" || quantidadeNaoInteira ? null : Number(dados.quantidade),
         valor: dados.valor === "" ? null : Number(dados.valor),
     };
 
@@ -272,12 +294,15 @@ $("#form-pedido").addEventListener("submit", async (evento) => {
         avisar(`Pedido #${criado.id} criado: pedido.criado publicado`);
         await atualizarPedidos();
     } catch (erro) {
-        const erros = erro.dados?.erros ?? {};
-        for (const [campo, mensagem] of Object.entries(erros)) {
-            form.querySelector(`[data-campo="${campo}"]`).textContent = mensagem;
-            form.querySelector(`[name="${campo}"]`).classList.add("invalido");
+        const erros = { ...(erro.dados?.erros ?? {}) };
+        if (quantidadeNaoInteira) {
+            erros.quantidade = "deve ser um número inteiro";
         }
-        avisar(erro.message, "erro");
+        for (const [campo, mensagem] of Object.entries(erros)) {
+            form.querySelector(`[data-campo="${campo}"]`)?.replaceChildren(mensagem);
+            form.querySelector(`[name="${campo}"]`)?.classList.add("invalido");
+        }
+        avisar(Object.keys(erros).length ? "Corrija os campos destacados." : erro.message, "erro");
     } finally {
         botao.disabled = false;
     }
