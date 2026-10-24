@@ -68,9 +68,22 @@ Sobe o RabbitMQ e a API em containers. Se a porta 8080 estiver ocupada: `APP_POR
 
 | O quê | Endereço |
 |---|---|
+| **Interface web** | http://localhost:8080 |
 | API | http://localhost:8080/pedidos |
 | RabbitMQ Management | http://localhost:15672 (usuário `guest`, senha `guest`) |
 | Console H2 (só na opção A) | http://localhost:8080/h2-console (JDBC URL `jdbc:h2:mem:pedidos`, usuário `sa`, sem senha) |
+
+> O banco H2 fica em memória: ao reiniciar só a aplicação, os pedidos somem, mas as mensagens pendentes no RabbitMQ continuam lá e passam a apontar para pedidos que não existem mais. Para recomeçar do zero, reinicie os dois com `docker compose --profile app down` e suba de novo.
+
+## Interface web
+
+A página em http://localhost:8080 é servida pelo próprio Spring Boot (arquivos em `src/main/resources/static`) e se atualiza sozinha a cada segundo:
+
+- **Novo pedido**: formulário que chama `POST /pedidos` e mostra os erros de validação em cada campo.
+- **Cenários de demonstração**: pedido normal, falha no pagamento, carga de 20 pedidos, JSON malformado e evento inválido.
+- **Filas**: mensagens em cada fila e botão para **pausar ou retomar o consumidor**. Com um consumidor pausado, as mensagens acumulam na fila e voltam a ser processadas ao retomar.
+- **Pedidos**: status mudando de `CRIADO` para `PAGO` em tempo real, com botão de cancelar.
+- **Atividade**: linha do tempo do que cada parte do sistema fez, colorida por origem (publisher, estoque, pagamento, notificação, DLQ).
 
 ## Endpoints
 
@@ -80,6 +93,17 @@ Sobe o RabbitMQ e a API em containers. Se a porta 8080 estiver ocupada: `APP_POR
 | `GET` | `/pedidos` | Lista os pedidos | 200 |
 | `GET` | `/pedidos/{id}` | Busca um pedido | 200, 404 |
 | `POST` | `/pedidos/{id}/cancelar` | Cancela e publica `pedido.cancelado` | 200, 404, 409 |
+
+Endpoints de apoio usados pela interface:
+
+| Método | Caminho | Descrição |
+|---|---|---|
+| `GET` | `/monitoramento/filas` | Mensagens e consumidores de cada fila |
+| `GET` | `/monitoramento/atividades?apos={id}` | Linha do tempo (últimas 300 atividades) |
+| `POST` | `/monitoramento/consumidores/{id}/pausar` | Pausa um consumidor (`estoque`, `pagamento`, `notificacao` ou `dlq`) |
+| `POST` | `/monitoramento/consumidores/{id}/retomar` | Retoma o consumidor |
+| `POST` | `/demo/json-malformado` | Publica um JSON quebrado em `pedido.criado` |
+| `POST` | `/demo/evento-invalido` | Publica um evento com quantidade 0 em `pedido.criado` |
 
 Corpo do `POST /pedidos`:
 
@@ -132,24 +156,19 @@ Para ver as mensagens paradas na DLQ pelo Management (em vez de consumidas pelo 
 ./mvnw spring-boot:run -Dspring-boot.run.arguments=--dlq.consumer.auto-startup=false
 ```
 
-## Roteiro de demonstração (RabbitMQ Management)
+## Roteiro de demonstração
 
-1. **Topologia** — Em *Exchanges → pedido.events → Bindings*, mostrar as quatro ligações e as routing keys. Em *Queues and Streams*, mostrar as quatro filas e o argumento `DLX` nelas.
-2. **Fluxo feliz** — Criar um pedido e mostrar no log os três consumidores reagindo e o `pedido.pago` encadeado. Consultar `GET /pedidos/1` e ver o status `PAGO`.
-3. **Filas enchendo e esvaziando** — Disparar vários pedidos de uma vez. O pagamento leva 1 s por pedido, então `pagamento.queue` acumula mensagens enquanto estoque e notificação esvaziam na hora:
-   ```bash
-   for i in $(seq 1 20); do curl -s -X POST localhost:8080/pedidos -H 'Content-Type: application/json' \
-     -d "{\"cliente\":\"Cliente $i\",\"produto\":\"Teclado\",\"quantidade\":1,\"valor\":150}" > /dev/null; done
-   ```
-4. **Taxas** — Em *Overview*, acompanhar *Publish rate* e *Deliver rate* durante o passo anterior.
-5. **Consumidor parado** — Parar a aplicação e publicar mensagens manualmente em *Exchanges → pedido.events → Publish message* (routing key `pedido.criado`). As mensagens ficam acumuladas nas filas. Ao subir a aplicação de novo, elas são consumidas. Nada se perde porque as filas são duráveis e quem guarda as mensagens é o broker, não a aplicação.
-6. **Mensagem inválida** — Em *Exchanges → pedido.events → Publish message*:
-   - Routing key: `pedido.criado`
-   - Properties: `content_type` = `application/json`
-   - Payload: `{ isto não é json`
+Deixe a interface web e o RabbitMQ Management abertos lado a lado.
 
-   No log aparecem três linhas `[DLQ] Mensagem rejeitada na fila ...` (uma por fila ligada a `pedido.criado`). Repetir com um payload válido mas com `"quantidade": 0`.
-7. **Falha transitória** — Criar um pedido com `"valor": 15000`. No log aparecem três tentativas de cobrança espaçadas por 1 s e 2 s e, em seguida, a mensagem na DLQ. O pedido permanece `CRIADO`.
+1. **Topologia** — No Management, em *Exchanges → pedido.events → Bindings*, mostrar as quatro ligações e as routing keys. Em *Queues and Streams*, mostrar as quatro filas e o argumento `DLX` nelas.
+2. **Fluxo feliz** — Na interface, clicar em *Pedido normal*. Na linha do tempo aparecem o publisher, o estoque, a notificação e o pagamento reagindo, seguidos do `pedido.pago` encadeado. Na tabela, o status muda de `CRIADO` para `PAGO`.
+3. **Filas enchendo e esvaziando** — Clicar em *Carga: 20 pedidos*. O pagamento leva 1 s por pedido, então `pagamento.queue` acumula mensagens enquanto estoque e notificação esvaziam na hora.
+4. **Taxas** — No Management, em *Overview*, acompanhar *Publish rate* e *Deliver rate* durante o passo anterior.
+5. **Consumidor parado** — Clicar em *Pausar* na `pagamento.queue` e criar alguns pedidos. As mensagens acumulam na fila e os pedidos ficam `CRIADO`. Ao clicar em *Retomar*, tudo é processado. Nada se perde porque quem guarda as mensagens é o broker, não a aplicação.
+6. **Mensagem inválida** — Clicar em *JSON malformado*. A linha do tempo mostra três registros `DLQ`, um por fila ligada a `pedido.criado`, sem nenhuma nova tentativa. Repetir com *Evento inválido*. Para ver as mensagens paradas na DLQ, pausar o consumidor da `pedido.dlq` antes e depois inspecionar pelo Management (*Queues → pedido.dlq → Get messages*).
+7. **Falha transitória** — Clicar em *Falha no pagamento*. A linha do tempo mostra três tentativas de cobrança espaçadas por 1 s e 2 s e, em seguida, a mensagem na DLQ. O pedido permanece `CRIADO`.
+
+Também é possível publicar a mensagem inválida pelo próprio Management, em *Exchanges → pedido.events → Publish message*, com routing key `pedido.criado`, a property `content_type` = `application/json` e o payload `{ isto não é json`.
 
 ## Testes
 
@@ -157,7 +176,7 @@ Para ver as mensagens paradas na DLQ pelo Management (em vez de consumidas pelo 
 ./mvnw verify
 ```
 
-Os testes de integração usam [Testcontainers](https://testcontainers.com) para subir um RabbitMQ real, por isso precisam do Docker rodando. Eles cobrem o fluxo criado → pago, o retry seguido de DLQ, o JSON malformado, o payload inválido e o log do `DlqConsumer`.
+Os testes de integração usam [Testcontainers](https://testcontainers.com) para subir um RabbitMQ real, por isso precisam do Docker rodando. Eles cobrem o fluxo criado → pago, a pausa e retomada de um consumidor, o retry seguido de DLQ, o JSON malformado, o payload inválido e o log do `DlqConsumer`.
 
 ## Estrutura
 
@@ -169,7 +188,10 @@ src/main/java/br/edu/mensageria
 ├── estoque/       EstoqueConsumer
 ├── pagamento/     PagamentoConsumer
 ├── notificacao/   NotificacaoConsumer
-└── dlq/           DlqConsumer
+├── dlq/           DlqConsumer
+└── monitoramento/ RegistroDeAtividades e endpoints de apoio à interface web
+
+src/main/resources/static   interface web (index.html, styles.css, app.js)
 ```
 
 ## Configurações (`application.properties`)
