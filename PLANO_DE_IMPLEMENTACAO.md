@@ -167,7 +167,7 @@ br.edu.mensageria
 | 1 | Uma aplicação ou várias? | ✅ App única com consumidores em pacotes separados | Multi-módulo com 4 apps (pedido-api, estoque, pagamento, notificacao) |
 | 2 | Persistência do pedido | ✅ JPA + H2 em memória | Lista em memória · PostgreSQL no Docker |
 | 3 | Fluxo do pagamento | ✅ `PagamentoConsumer` publica `pedido.pago` automaticamente | Endpoint manual `POST /pedidos/{id}/pagar` · ambos |
-| 4 | Formato de entrega | ⏳ A definir conforme exigência do professor | Relatório · prints · vídeo · repositório Git |
+| 4 | Formato de entrega | ✅ Vídeo apresentando código, decisões, interface e funcionamento (ver [ROTEIRO_VIDEO.md](ROTEIRO_VIDEO.md)) | Relatório · prints · repositório Git |
 
 ## Referências
 
