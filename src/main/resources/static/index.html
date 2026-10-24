@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Sistema de Pedidos · RabbitMQ</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<header class="topo">
+    <div class="marca">
+        <span class="logo" aria-hidden="true">✉</span>
+        <div>
+            <h1>Sistema de Pedidos</h1>
+            <p>Spring Boot · REST · RabbitMQ</p>
+        </div>
+    </div>
+    <div class="topo-acoes">
+        <span id="conexao" class="conexao conexao--aguardando">Conectando…</span>
+        <a id="link-management" class="botao botao--fantasma" href="http://localhost:15672" target="_blank" rel="noopener">
+            RabbitMQ Management ↗
+        </a>
+    </div>
+</header>
+
+<main class="layout">
+    <div class="coluna coluna--esquerda">
+        <section class="card">
+            <h2>Novo pedido</h2>
+            <form id="form-pedido" novalidate>
+                <label>Cliente
+                    <input name="cliente" autocomplete="off" placeholder="Maria">
+                    <small class="erro-campo" data-campo="cliente"></small>
+                </label>
+                <label>Produto
+                    <input name="produto" autocomplete="off" placeholder="Notebook">
+                    <small class="erro-campo" data-campo="produto"></small>
+                </label>
+                <div class="linha">
+                    <label>Quantidade
+                        <input name="quantidade" type="number" min="1" step="1" placeholder="2">
+                        <small class="erro-campo" data-campo="quantidade"></small>
+                    </label>
+                    <label>Valor (R$)
+                        <input name="valor" type="number" min="0.01" step="0.01" placeholder="3500">
+                        <small class="erro-campo" data-campo="valor"></small>
+                    </label>
+                </div>
+                <button class="botao botao--primario" type="submit">Criar pedido</button>
+            </form>
+        </section>
+
+        <section class="card">
+            <h2>Cenários de demonstração</h2>
+            <div class="cenarios">
+                <button class="cenario" data-cenario="normal">
+                    <strong>Pedido normal</strong>
+                    <span>Criado → estoque, notificação e pagamento → pago</span>
+                </button>
+                <button class="cenario" data-cenario="falha">
+                    <strong>Falha no pagamento</strong>
+                    <span>R$ 15.000: gateway simulado fora do ar, 3 tentativas e DLQ</span>
+                </button>
+                <button class="cenario" data-cenario="carga">
+                    <strong>Carga: 20 pedidos</strong>
+                    <span>A fila de pagamento acumula e esvazia aos poucos</span>
+                </button>
+                <button class="cenario cenario--erro" data-cenario="json">
+                    <strong>JSON malformado</strong>
+                    <span>Publicado direto na exchange, vai para a DLQ sem retry</span>
+                </button>
+                <button class="cenario cenario--erro" data-cenario="invalido">
+                    <strong>Evento inválido</strong>
+                    <span>JSON válido com quantidade 0, rejeitado pelos consumidores</span>
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <div class="coluna coluna--centro">
+        <section class="card">
+            <div class="card-cabecalho">
+                <h2>Filas</h2>
+                <span class="fluxo">API → <code>pedido.events</code> <span class="tag">TOPIC</span> → filas</span>
+            </div>
+            <div id="filas" class="filas"></div>
+            <p class="dica">Pause um consumidor e crie pedidos para ver as mensagens acumulando na fila.</p>
+        </section>
+
+        <section class="card">
+            <div class="card-cabecalho">
+                <h2>Pedidos</h2>
+                <span id="resumo-pedidos" class="resumo"></span>
+            </div>
+            <div class="tabela-rolagem">
+                <table>
+                    <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Cliente</th>
+                        <th>Produto</th>
+                        <th class="num">Qtd</th>
+                        <th class="num">Valor</th>
+                        <th>Status</th>
+                        <th></th>
+                    </tr>
+                    </thead>
+                    <tbody id="pedidos"></tbody>
+                </table>
+            </div>
+            <p id="pedidos-vazio" class="vazio">Nenhum pedido ainda. Crie um pelo formulário ou por um cenário.</p>
+        </section>
+    </div>
+
+    <div class="coluna coluna--direita">
+        <section class="card card--atividade">
+            <div class="card-cabecalho">
+                <h2>Atividade</h2>
+                <button id="limpar-atividade" class="botao botao--fantasma botao--pequeno" type="button">Limpar</button>
+            </div>
+            <ol id="atividades" class="atividades"></ol>
+            <p id="atividades-vazio" class="vazio">Os eventos publicados e consumidos aparecem aqui.</p>
+        </section>
+    </div>
+</main>
+
+<div id="aviso" class="aviso" role="status" aria-live="polite"></div>
+
+<script src="app.js"></script>
+</body>
+</html>
