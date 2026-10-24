@@ -6,6 +6,10 @@ A API recebe pedidos via HTTP, grava no banco e publica eventos em uma exchange 
 
 O planejamento completo está em [PLANO_DE_IMPLEMENTACAO.md](PLANO_DE_IMPLEMENTACAO.md).
 
+## Vídeo de apresentação
+
+[video/apresentacao-mensageria.mp4](video/apresentacao-mensageria.mp4) (7 minutos): stack, arquitetura, código, interface web, RabbitMQ Management e o tratamento de mensagens inválidas funcionando.
+
 ## Arquitetura
 
 ```
